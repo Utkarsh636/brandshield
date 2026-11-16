@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      Role     @default(CREATOR)
+  contents  Content[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  CREATOR
+}
+
+model BrandGuideline {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  rawContent  String   @db.Text
+  rules       Rule[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Rule {
+  id          String       @id @default(cuid())
+  ruleCode    String       @unique
+  category    RuleCategory
+  title       String
+  description String       @db.Text
+  severity    Severity     @default(WARNING)
+  guidelineId String
+  guideline   BrandGuideline @relation(fields: [guidelineId], references: [id], onDelete: Cascade)
+  findings    Finding[]
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum RuleCategory {
+  TONE
+  TERMINOLOGY
+  FACTS
+  MESSAGING
+  ACCESSIBILITY
+  VISUAL
+}
+
+enum Severity {
+  CRITICAL
+  WARNING
+  SUGGESTION
+}
+
+model Content {
+  id          String        @id @default(cuid())
+  title       String
+  body        String        @db.Text
+  contentType ContentType   @default(TEXT)
+  status      ContentStatus @default(PENDING)
+  submittedBy String
+  submitter   User          @relation(fields: [submittedBy], references: [id])
+  reviews     Review[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum ContentType {
+  TEXT
+  EMAIL
+  SOCIAL_POST
+  ADVERTISEMENT
+  DOCUMENT
+  BLOG_POST
+}
+
+enum ContentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+model Review {
+  id           String       @id @default(cuid())
+  contentId    String
+  content      Content      @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  findings     Finding[]
+  overallScore Float?
+  summary      String?      @db.Text
+  status       ReviewStatus @default(IN_PROGRESS)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+enum ReviewStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Finding {
+  id          String       @id @default(cuid())
+  reviewId    String
+  review      Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  ruleId      String?
+  rule        Rule?        @relation(fields: [ruleId], references: [id])
+  issueText   String       @db.Text
+  explanation String       @db.Text
+  suggestion  String       @db.Text
+  severity    Severity
+  category    RuleCategory
+  isResolved  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+}
