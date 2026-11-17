@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState, useCallback } from "react"
+import { useParams } from "next/navigation"
 import {
   CheckCircle,
   XCircle,
@@ -10,8 +10,9 @@ import {
   RefreshCw,
   ArrowLeft,
   Shield,
-  FileText,
   Info,
+  AlertCircle,
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -21,6 +22,14 @@ const statusColors: Record<string, string> = {
   APPROVED: "bg-green-500/20 text-green-400 border-green-500/30",
   REJECTED: "bg-red-500/20 text-red-400 border-red-500/30",
   REVISION_REQUESTED: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+}
+
+const statusLabels: Record<string, string> = {
+  PENDING: "Pending",
+  UNDER_REVIEW: "Under Review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  REVISION_REQUESTED: "Revision Requested",
 }
 
 const severityConfig: Record<string, { color: string; icon: any }> = {
@@ -40,36 +49,49 @@ const categoryColors: Record<string, string> = {
 
 export default function ContentDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const [content, setContent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState("")
   const [reviewLoading, setReviewLoading] = useState(false)
+  const [toast, setToast] = useState("")
+  const [fetchError, setFetchError] = useState("")
 
-  const fetchContent = () => {
+  const fetchContent = useCallback(() => {
     setLoading(true)
+    setFetchError("")
     fetch(`/api/content/${params.id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Not found")
+        return r.json()
+      })
       .then(setContent)
-      .catch(console.error)
+      .catch(() => setFetchError("Content not found or failed to load."))
       .finally(() => setLoading(false))
-  }
+  }, [params.id])
 
   useEffect(() => {
     fetchContent()
-  }, [params.id])
+  }, [fetchContent])
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(""), 3000)
+  }
 
   const updateStatus = async (status: string) => {
     setActionLoading(status)
     try {
-      await fetch(`/api/content/${params.id}`, {
+      const res = await fetch(`/api/content/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       })
-      fetchContent()
-    } catch (err) {
-      console.error(err)
+      if (res.ok) {
+        showToast(`Status updated to ${statusLabels[status] || status}`)
+        fetchContent()
+      }
+    } catch {
+      showToast("Failed to update status")
     }
     setActionLoading("")
   }
@@ -78,31 +100,41 @@ export default function ContentDetailPage() {
     setReviewLoading(true)
     try {
       await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      showToast("Review complete!")
       fetchContent()
-    } catch (err) {
-      console.error(err)
+    } catch {
+      showToast("Review failed. Try again.")
     }
     setReviewLoading(false)
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20 animate-fade-in">
         <Loader2 className="h-8 w-8 text-rose-500 animate-spin" />
       </div>
     )
   }
 
-  if (!content) {
-    return <p className="text-slate-400">Content not found.</p>
+  if (fetchError || !content) {
+    return (
+      <div className="text-center py-20 animate-fade-in">
+        <AlertCircle className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+        <p className="text-slate-400">{fetchError || "Content not found."}</p>
+        <Link href="/dashboard/content" className="text-rose-400 hover:text-rose-300 text-sm mt-3 inline-block">
+          Back to content queue
+        </Link>
+      </div>
+    )
   }
 
   const latestReview = content.reviews?.[0]
   const findings = latestReview?.findings || []
   const score = latestReview?.overallScore
+  const hasValidScore = score != null && score >= 0
 
   const scoreColor =
-    score == null
+    !hasValidScore
       ? "text-slate-400"
       : score >= 80
         ? "text-green-400"
@@ -111,20 +143,31 @@ export default function ContentDetailPage() {
           : "text-red-400"
 
   const scoreBg =
-    score == null
-      ? "bg-slate-800"
+    !hasValidScore
+      ? "bg-slate-800 border-slate-700"
       : score >= 80
         ? "bg-green-500/10 border-green-500/20"
         : score >= 50
           ? "bg-yellow-500/10 border-yellow-500/20"
           : "bg-red-500/10 border-red-500/20"
 
+  const criticalCount = findings.filter((f: any) => f.severity === "CRITICAL").length
+  const warningCount = findings.filter((f: any) => f.severity === "WARNING").length
+  const suggestionCount = findings.filter((f: any) => f.severity === "SUGGESTION").length
+
   return (
-    <div>
+    <div className="animate-fade-in">
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white shadow-xl animate-slide-up">
+          {toast}
+        </div>
+      )}
+
       {/* Back link */}
       <Link
         href="/dashboard/content"
-        className="text-sm text-slate-400 hover:text-white flex items-center gap-1 mb-6"
+        className="text-sm text-slate-400 hover:text-white flex items-center gap-1 mb-6 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" /> Back to queue
       </Link>
@@ -139,23 +182,29 @@ export default function ContentDetailPage() {
                 <h1 className="text-xl font-bold text-white mb-2">
                   {content.title}
                 </h1>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs bg-slate-700/50 text-slate-300 px-2 py-1 rounded">
                     {content.contentType.replace(/_/g, " ")}
                   </span>
                   <span
                     className={`text-xs px-2.5 py-1 rounded-full border ${statusColors[content.status] || ""}`}
                   >
-                    {content.status.replace(/_/g, " ")}
+                    {statusLabels[content.status] || content.status}
                   </span>
+                  {content.submitter?.name && (
+                    <span className="text-xs text-slate-500">by {content.submitter.name}</span>
+                  )}
                 </div>
               </div>
-              <span className="text-xs text-slate-500">
-                {new Date(content.createdAt).toLocaleString()}
-              </span>
+              <div className="text-right shrink-0">
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {new Date(content.createdAt).toLocaleDateString()}
+                </span>
+              </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-700/30 rounded-lg p-4">
+            <div className="bg-slate-900/50 border border-slate-700/30 rounded-lg p-4 max-h-[400px] overflow-y-auto">
               <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
                 {content.body}
               </p>
@@ -168,46 +217,29 @@ export default function ContentDetailPage() {
               Actions
             </h3>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => updateStatus("APPROVED")}
-                disabled={!!actionLoading}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                {actionLoading === "APPROVED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-4 w-4" />
-                )}
-                Approve
-              </button>
-              <button
-                onClick={() => updateStatus("REVISION_REQUESTED")}
-                disabled={!!actionLoading}
-                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                {actionLoading === "REVISION_REQUESTED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <AlertTriangle className="h-4 w-4" />
-                )}
-                Request Revision
-              </button>
-              <button
-                onClick={() => updateStatus("REJECTED")}
-                disabled={!!actionLoading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-              >
-                {actionLoading === "REJECTED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <XCircle className="h-4 w-4" />
-                )}
-                Reject
-              </button>
+              {[
+                { status: "APPROVED", label: "Approve", icon: CheckCircle, cls: "bg-green-600 hover:bg-green-700" },
+                { status: "REVISION_REQUESTED", label: "Request Revision", icon: AlertTriangle, cls: "bg-yellow-600 hover:bg-yellow-700" },
+                { status: "REJECTED", label: "Reject", icon: XCircle, cls: "bg-red-600 hover:bg-red-700" },
+              ].map((action) => (
+                <button
+                  key={action.status}
+                  onClick={() => updateStatus(action.status)}
+                  disabled={!!actionLoading || content.status === action.status}
+                  className={`px-4 py-2 ${action.cls} disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2`}
+                >
+                  {actionLoading === action.status ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <action.icon className="h-4 w-4" />
+                  )}
+                  {action.label}
+                </button>
+              ))}
               <button
                 onClick={rerunReview}
                 disabled={reviewLoading}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2"
               >
                 {reviewLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -225,18 +257,44 @@ export default function ContentDetailPage() {
           {/* Score */}
           <div className={`border rounded-xl p-6 text-center ${scoreBg}`}>
             <Shield className={`h-8 w-8 mx-auto mb-2 ${scoreColor}`} />
-            <p className={`text-5xl font-bold ${scoreColor}`}>
-              {score != null ? score : "\u2014"}
-            </p>
+            {hasValidScore ? (
+              <p className={`text-5xl font-bold ${scoreColor}`}>{score}</p>
+            ) : (
+              <p className="text-3xl font-bold text-slate-500">N/A</p>
+            )}
             <p className="text-sm text-slate-400 mt-1">
               Brand Compliance Score
             </p>
             {latestReview?.summary && (
-              <p className="text-sm text-slate-300 mt-3 leading-relaxed">
+              <p className="text-sm text-slate-300 mt-3 leading-relaxed text-left">
                 {latestReview.summary}
               </p>
             )}
           </div>
+
+          {/* Findings summary mini-bar */}
+          {findings.length > 0 && (
+            <div className="flex gap-2">
+              {criticalCount > 0 && (
+                <div className="flex-1 text-center py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-lg font-bold text-red-400">{criticalCount}</p>
+                  <p className="text-[10px] text-red-400/70 uppercase">Critical</p>
+                </div>
+              )}
+              {warningCount > 0 && (
+                <div className="flex-1 text-center py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                  <p className="text-lg font-bold text-yellow-400">{warningCount}</p>
+                  <p className="text-[10px] text-yellow-400/70 uppercase">Warning</p>
+                </div>
+              )}
+              {suggestionCount > 0 && (
+                <div className="flex-1 text-center py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-lg font-bold text-blue-400">{suggestionCount}</p>
+                  <p className="text-[10px] text-blue-400/70 uppercase">Suggestion</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Findings */}
           <div>
@@ -260,7 +318,8 @@ export default function ContentDetailPage() {
                   return (
                     <div
                       key={finding.id || idx}
-                      className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3"
+                      className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3 animate-slide-up"
+                      style={{ animationDelay: `${idx * 50}ms`, animationFillMode: "both" }}
                     >
                       {/* Header */}
                       <div className="flex items-center gap-2 flex-wrap">
@@ -276,36 +335,26 @@ export default function ContentDetailPage() {
                           {finding.category}
                         </span>
                         {finding.rule && (
-                          <span className="text-xs text-slate-500">
-                            Rule: {finding.rule.ruleCode}
+                          <span className="text-xs text-slate-500 font-mono">
+                            {finding.rule.ruleCode}
                           </span>
                         )}
                       </div>
 
                       {/* Issue */}
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Issue</p>
+                        <p className="text-xs text-slate-500 mb-1">Flagged text</p>
                         <div className="bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
-                          <p className="text-sm text-red-300">
-                            {finding.issueText}
+                          <p className="text-sm text-red-300 italic">
+                            &ldquo;{finding.issueText}&rdquo;
                           </p>
                         </div>
                       </div>
 
-                      {/* Rule */}
-                      {finding.rule && (
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">
-                            Rule: {finding.rule.ruleCode} —{" "}
-                            {finding.rule.title}
-                          </p>
-                        </div>
-                      )}
-
                       {/* Explanation */}
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Why</p>
-                        <p className="text-sm text-slate-300">
+                        <p className="text-xs text-slate-500 mb-1">Why this is an issue</p>
+                        <p className="text-sm text-slate-300 leading-relaxed">
                           {finding.explanation}
                         </p>
                       </div>
@@ -313,7 +362,7 @@ export default function ContentDetailPage() {
                       {/* Suggestion */}
                       <div>
                         <p className="text-xs text-slate-500 mb-1">
-                          Suggested Fix
+                          Suggested fix
                         </p>
                         <div className="bg-green-500/5 border border-green-500/10 rounded-lg px-3 py-2">
                           <p className="text-sm text-green-300">
@@ -321,6 +370,13 @@ export default function ContentDetailPage() {
                           </p>
                         </div>
                       </div>
+
+                      {/* Rule reference */}
+                      {finding.rule && (
+                        <p className="text-xs text-slate-600">
+                          Rule {finding.rule.ruleCode}: {finding.rule.title}
+                        </p>
+                      )}
                     </div>
                   )
                 })}
