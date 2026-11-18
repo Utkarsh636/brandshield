@@ -145,6 +145,6 @@ vercel
 
 Set environment variables in Vercel Dashboard → Settings → Environment Variables.
 
----
 
-Built by Utkarsh for the Inkloom AI Hackathon 2024
+
+
