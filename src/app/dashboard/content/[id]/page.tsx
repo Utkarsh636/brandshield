@@ -13,6 +13,10 @@ import {
   Info,
   AlertCircle,
   Clock,
+  Wand2,
+  Copy,
+  Check,
+  ArrowRight,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -56,6 +60,12 @@ export default function ContentDetailPage() {
   const [toast, setToast] = useState("")
   const [fetchError, setFetchError] = useState("")
 
+  // Auto-fix state
+  const [fixLoading, setFixLoading] = useState(false)
+  const [fixResult, setFixResult] = useState<any>(null)
+  const [savingFix, setSavingFix] = useState(false)
+  const [copied, setCopied] = useState(false)
+
   const fetchContent = useCallback(() => {
     setLoading(true)
     setFetchError("")
@@ -98,6 +108,7 @@ export default function ContentDetailPage() {
 
   const rerunReview = async () => {
     setReviewLoading(true)
+    setFixResult(null)
     try {
       await fetch(`/api/content/${params.id}/review`, { method: "POST" })
       showToast("Review complete!")
@@ -106,6 +117,48 @@ export default function ContentDetailPage() {
       showToast("Review failed. Try again.")
     }
     setReviewLoading(false)
+  }
+
+  const autoFix = async () => {
+    setFixLoading(true)
+    try {
+      const res = await fetch(`/api/content/${params.id}/fix`, { method: "POST" })
+      if (!res.ok) throw new Error("Fix failed")
+      const data = await res.json()
+      setFixResult(data)
+      showToast(`Applied ${data.appliedFixes} of ${data.totalFindings} fixes`)
+    } catch {
+      showToast("Auto-fix failed. Try again.")
+    }
+    setFixLoading(false)
+  }
+
+  const saveFixedContent = async () => {
+    if (!fixResult?.fixedBody) return
+    setSavingFix(true)
+    try {
+      await fetch(`/api/content/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: fixResult.fixedBody }),
+      })
+      setFixResult(null)
+      showToast("Fixed content saved! Re-running review...")
+      // Re-run review on the fixed content
+      await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      showToast("Review of fixed content complete!")
+      fetchContent()
+    } catch {
+      showToast("Failed to save. Try again.")
+    }
+    setSavingFix(false)
+  }
+
+  const copyFixed = () => {
+    if (!fixResult?.fixedBody) return
+    navigator.clipboard.writeText(fixResult.fixedBody)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (loading) {
@@ -172,6 +225,99 @@ export default function ContentDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to queue
       </Link>
 
+      {/* Auto-fix result panel */}
+      {fixResult && fixResult.fixedBody !== content.body && (
+        <div className="mb-6 bg-gradient-to-br from-green-500/5 to-slate-900 border border-green-500/20 rounded-xl p-6 animate-scale-in">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-green-400" />
+              <h3 className="text-lg font-semibold text-white">Auto-Fix Preview</h3>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                {fixResult.appliedFixes}/{fixResult.totalFindings} fixes applied
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copyFixed}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied!" : "Copy"}
+              </button>
+              <button
+                onClick={() => setFixResult(null)}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 rounded-lg transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          {/* Before / After */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-red-400 font-medium mb-2 uppercase tracking-wider">Original</p>
+              <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed">{fixResult.originalBody}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-green-400 font-medium mb-2 uppercase tracking-wider">Fixed</p>
+              <div className="bg-green-500/5 border border-green-500/10 rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{fixResult.fixedBody}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Fix log */}
+          {fixResult.fixLog && fixResult.fixLog.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider">Changes Made</p>
+              <div className="space-y-1.5">
+                {fixResult.fixLog.map((log: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    {log.applied ? (
+                      <CheckCircle className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                    )}
+                    <span className={`${log.applied ? "text-red-400 line-through" : "text-slate-600"}`}>
+                      {log.issueText}
+                    </span>
+                    {log.applied && (
+                      <>
+                        <ArrowRight className="h-3 w-3 text-slate-600 shrink-0" />
+                        <span className="text-green-400">{log.suggestion}</span>
+                      </>
+                    )}
+                    {!log.applied && (
+                      <span className="text-slate-600 italic">(not found in text)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Save button */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveFixedContent}
+              disabled={savingFix}
+              className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium rounded-lg transition-all flex items-center gap-2 text-sm"
+            >
+              {savingFix ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              {savingFix ? "Saving & re-reviewing..." : "Save Fixed Version & Re-review"}
+            </button>
+            <p className="text-xs text-slate-500">Replaces content body and runs a fresh AI review</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: Content */}
         <div className="lg:col-span-3 space-y-6">
@@ -217,6 +363,22 @@ export default function ContentDetailPage() {
               Actions
             </h3>
             <div className="flex flex-wrap gap-3">
+              {/* Auto-fix button */}
+              {findings.length > 0 && !fixResult && (
+                <button
+                  onClick={autoFix}
+                  disabled={fixLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-rose-600 hover:from-violet-700 hover:to-rose-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-violet-500/20"
+                >
+                  {fixLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  {fixLoading ? "Fixing..." : "Auto-Fix All"}
+                </button>
+              )}
+
               {[
                 { status: "APPROVED", label: "Approve", icon: CheckCircle, cls: "bg-green-600 hover:bg-green-700" },
                 { status: "REVISION_REQUESTED", label: "Request Revision", icon: AlertTriangle, cls: "bg-yellow-600 hover:bg-yellow-700" },
@@ -361,9 +523,7 @@ export default function ContentDetailPage() {
 
                       {/* Suggestion */}
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">
-                          Suggested fix
-                        </p>
+                        <p className="text-xs text-slate-500 mb-1">Suggested fix</p>
                         <div className="bg-green-500/5 border border-green-500/10 rounded-lg px-3 py-2">
                           <p className="text-sm text-green-300">
                             {finding.suggestion}

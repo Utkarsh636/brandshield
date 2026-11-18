@@ -37,10 +37,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await req.json()
+    const reqBody = await req.json()
+    const updateData: any = {}
+    if (reqBody.status) updateData.status = reqBody.status
+    if (reqBody.body) updateData.body = reqBody.body
     const content = await prisma.content.update({
       where: { id: params.id },
-      data: { status: body.status },
+      data: updateData,
     })
     return NextResponse.json(content)
   } catch (error) {
