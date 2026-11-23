@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   FileText,
@@ -68,9 +69,15 @@ function Skeleton() {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+
+  const startDemo = () => {
+    localStorage.setItem("brandshield_demo_mode", "true")
+    router.push("/dashboard/content?demo=1")
+  }
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -110,7 +117,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-start justify-between gap-4 mb-8"><div><h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1><p className="text-slate-400">Brand governance overview</p></div><Link href="/dashboard/content" className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"><PlayCircle className="h-4 w-4" /> Demo mode</Link></div>
+      <div className="flex items-start justify-between gap-4 mb-8"><div><h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1><p className="text-slate-400">Brand governance overview</p></div><button onClick={startDemo} title="Open the guided demo content" className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"><PlayCircle className="h-4 w-4" /> Demo mode</button></div>
 
       {/* Empty-state quick actions */}
       {isEmpty && (

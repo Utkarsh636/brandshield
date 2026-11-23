@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FileText, Loader2, Eye, AlertCircle } from "lucide-react"
 
@@ -30,10 +31,12 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function ContentQueuePage() {
+  const searchParams = useSearchParams()
   const [contents, setContents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [statusFilter, setStatusFilter] = useState("ALL")
+  const demoMode = searchParams.get("demo") === "1"
 
   useEffect(() => {
     fetch("/api/content")
@@ -51,6 +54,7 @@ export default function ContentQueuePage() {
 
   return (
     <div className="animate-fade-in">
+      {demoMode && <div className="mb-5 p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl"><p className="text-sm font-semibold text-violet-200">Demo mode is on</p><p className="text-xs text-slate-400 mt-1">Open a low-score item, use Auto-Fix, add a comment, inspect revisions, and download the PDF report.</p></div>}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Content Queue</h1>
