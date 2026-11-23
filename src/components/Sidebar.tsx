@@ -10,10 +10,13 @@ import {
   FileText,
   BookOpen,
   ScrollText,
+  BarChart3,
   LogOut,
   User,
   X,
+  Sparkles,
 } from "lucide-react"
+import NotificationBell from "./NotificationBell"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,6 +24,7 @@ const navItems = [
   { href: "/dashboard/content", label: "Content Queue", icon: FileText },
   { href: "/dashboard/rules", label: "Brand Rules", icon: BookOpen },
   { href: "/dashboard/guidelines", label: "Guidelines", icon: ScrollText },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
 ]
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
@@ -68,6 +72,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
       {/* User */}
       <div className="px-3 py-4 border-t border-slate-800">
+        <div className="px-1 mb-1"><NotificationBell /></div>
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center">
             <span className="text-xs font-bold text-white">
@@ -83,6 +88,18 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
             </p>
           </div>
         </div>
+        <button
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("brandshield_tour_completed")
+              window.location.href = "/dashboard"
+            }
+          }}
+          className="flex items-center gap-3 px-3 py-2 mt-1 w-full text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          <Sparkles className="h-4 w-4" />
+          Replay Tour
+        </button>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="flex items-center gap-3 px-3 py-2 mt-1 w-full text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"

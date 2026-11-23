@@ -150,6 +150,7 @@ export default function GuidelinesPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  maxLength={160}
                   placeholder="e.g. Acme Corp Brand Voice Guidelines"
                   className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm transition-shadow"
                 />
@@ -165,6 +166,7 @@ export default function GuidelinesPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Brief description of these guidelines"
+                  maxLength={500}
                   className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm transition-shadow"
                 />
               </div>
@@ -180,6 +182,7 @@ export default function GuidelinesPage() {
                   value={rawContent}
                   onChange={(e) => setRawContent(e.target.value)}
                   required
+                  maxLength={20000}
                   rows={10}
                   placeholder={"Paste your brand guidelines here...\n\nExample:\n- Always use active voice in customer-facing content\n- Use 'customers' instead of 'users' in external communications\n- Never make unverified product claims\n- Maintain a professional but friendly tone"}
                   className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm resize-y transition-shadow"
@@ -196,7 +199,7 @@ export default function GuidelinesPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={!name.trim() || !rawContent.trim()}
+                  disabled={!name.trim() || !rawContent.trim() || rawContent.length > 20000}
                   className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white font-medium rounded-lg transition-all text-sm"
                 >
                   Parse & Save Guidelines

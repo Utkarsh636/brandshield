@@ -12,7 +12,9 @@ import {
   PenSquare,
   ScrollText,
   AlertCircle,
+  PlayCircle,
 } from "lucide-react"
+import Tooltip from "@/components/Tooltip"
 
 interface DashboardData {
   totalContent: number
@@ -108,8 +110,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1>
-      <p className="text-slate-400 mb-8">Brand governance overview</p>
+      <div className="flex items-start justify-between gap-4 mb-8"><div><h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1><p className="text-slate-400">Brand governance overview</p></div><Link href="/dashboard/content" className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"><PlayCircle className="h-4 w-4" /> Demo mode</Link></div>
 
       {/* Empty-state quick actions */}
       {isEmpty && (
@@ -130,15 +131,17 @@ export default function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Total Content", value: data.totalContent, icon: FileText, color: "text-blue-400", link: "/dashboard/content" },
-          { label: "Approved", value: data.approvedContent, icon: CheckCircle, color: "text-green-400", link: "/dashboard/content" },
-          { label: "Compliance Rate", value: `${data.approvalRate}%`, icon: TrendingUp, color: "text-rose-400", link: null },
-          { label: "Active Rules", value: data.totalRules, icon: BookOpen, color: "text-purple-400", link: "/dashboard/rules" },
+          { label: "Total Content", value: data.totalContent, icon: FileText, color: "text-blue-400", link: "/dashboard/content", tip: "Total pieces of content submitted for review" },
+          { label: "Approved", value: data.approvedContent, icon: CheckCircle, color: "text-green-400", link: "/dashboard/content", tip: "Content that passed brand review and was approved" },
+          { label: "Compliance Rate", value: `${data.approvalRate}%`, icon: TrendingUp, color: "text-rose-400", link: null, tip: "Percentage of submitted content that was approved" },
+          { label: "Active Rules", value: data.totalRules, icon: BookOpen, color: "text-purple-400", link: "/dashboard/rules", tip: "Brand rules currently being checked against" },
         ].map((stat) => {
           const inner = (
             <>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-slate-400">{stat.label}</span>
+                <Tooltip text={stat.tip} position="bottom">
+                  <span className="text-sm text-slate-400 border-b border-dotted border-slate-600 cursor-help">{stat.label}</span>
+                </Tooltip>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
               <p className="text-3xl font-bold text-white">{stat.value}</p>

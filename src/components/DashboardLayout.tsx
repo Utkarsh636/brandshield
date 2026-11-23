@@ -4,7 +4,9 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import Sidebar from "./Sidebar"
+import GuidedTour from "./GuidedTour"
 import { Loader2, Menu, Shield } from "lucide-react"
+import CommandPalette from "./CommandPalette"
 
 export default function DashboardLayout({
   children,
@@ -34,6 +36,9 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-950">
+      <GuidedTour />
+      <CommandPalette />
+
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center gap-3">
         <button

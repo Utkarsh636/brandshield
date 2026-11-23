@@ -9,14 +9,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  role      Role     @default(CREATOR)
-  contents  Content[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  password      String
+  role          Role           @default(CREATOR)
+  contents      Content[]
+  comments      Comment[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 enum Role {
@@ -65,16 +67,19 @@ enum Severity {
 }
 
 model Content {
-  id          String        @id @default(cuid())
+  id          String           @id @default(cuid())
   title       String
-  body        String        @db.Text
-  contentType ContentType   @default(TEXT)
-  status      ContentStatus @default(PENDING)
+  body        String           @db.Text
+  imageUrl    String?          @db.Text
+  contentType ContentType      @default(TEXT)
+  status      ContentStatus    @default(PENDING)
   submittedBy String
-  submitter   User          @relation(fields: [submittedBy], references: [id])
+  submitter   User             @relation(fields: [submittedBy], references: [id])
   reviews     Review[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  comments    Comment[]
+  versions    ContentVersion[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 enum ContentType {
@@ -123,5 +128,43 @@ model Finding {
   severity    Severity
   category    RuleCategory
   isResolved  Boolean      @default(false)
+  comments    Comment[]
   createdAt   DateTime     @default(now())
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String   @db.Text
+  contentId String
+  content   Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  findingId String?
+  finding   Finding? @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime @default(now())
+}
+
+model ContentVersion {
+  id        String   @id @default(cuid())
+  contentId String
+  content   Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  body      String   @db.Text
+  version   Int
+  changedBy String
+  changeNote String?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  message   String
+  contentId String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

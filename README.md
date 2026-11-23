@@ -12,7 +12,7 @@
 2. **Submit content for review** — emails, ads, blogs, social posts — AI checks against every active rule
 3. **See explainable findings** — each violation shows the flagged text, matched rule, explanation, and suggested fix
 4. **Auto-fix with one click** — apply all suggested corrections instantly, see a before/after diff, re-review
-5. **Approve or reject** — complete the workflow with status tracking and notifications
+5. **Collaborate, decide, and report** — discuss findings, inspect revisions, get a recommendation, and download a branded report
 
 ---
 
@@ -27,8 +27,13 @@
 | **Compliance Scoring** | 0-100 score color-coded by severity with AI-generated review summary |
 | **Approval Workflow** | Approve, Reject, Request Revision with toast notifications |
 | **Governance Dashboard** | Stat cards, findings by category/severity bar charts, recent content with scores |
+| **Analytics Workspace** | Interactive compliance trends, severity trends, category/status breakdowns, and most-violated rules |
+| **Visual Review + Auto-Fix** | Upload PNG/JPEG/WebP artwork, check decoded-pixel colours with Sharp, and download a recoloured PNG |
+| **Collaboration + History** | Threaded comments, notifications, and numbered content versions with concise diffs and snapshots |
+| **Decision + PDF Export** | Explainable approval recommendation and downloadable branded review report |
+| **Fast Navigation** | First-visit guided tour, replayable onboarding, and Cmd/Ctrl+K command palette |
 | **Mobile Responsive** | Hamburger menu with sidebar overlay on small screens |
-| **Rich Demo Data** | 5 pre-seeded content items, 6 brand rules, 15 findings — ready to demo instantly |
+| **Rich Demo Data** | 20 pre-seeded content items, 8 brand rules, backdated reviews, comments, versions, and notifications |
 
 ---
 
@@ -36,12 +41,12 @@
 
 1. Open the app and click **Get Started**
 2. Click the **Admin** quick-login button (one click, no typing)
-3. **Dashboard** — see 5 content items, compliance stats, findings breakdown
+3. **Dashboard** — see 20 content items, compliance stats, findings breakdown, and a Demo mode shortcut
 4. **Submit Content** — click **Load Sample** (top right) to fill a bad email, submit for review
 5. **Content Detail** — see score (~18/100), 8 findings with explanations and suggested fixes
 6. **Auto-Fix All** — click the purple button, see before/after diff, save and re-review
 7. Score jumps to **85+** — content is now brand-compliant
-8. Click **Approve** to complete the workflow
+8. Click **Let BrandShield Decide** for an explainable recommendation, add a review comment, inspect the revision history, then download a PDF report
 
 ### Demo Credentials
 
@@ -117,21 +122,26 @@ src/
     api/
       auth/[...nextauth]/     # NextAuth handler
       content/                 # Content CRUD + AI review
-      content/[id]/fix/        # Auto-fix engine
+      content/[id]/fix/        # Text auto-fix engine
+      content/[id]/fix-visual/ # Sharp-powered image recolouring
+      content/[id]/comments/   # Threaded comments
+      content/[id]/decide/     # Approval recommendation
+      analytics/               # Analytics aggregation
+      notifications/           # In-app notifications
       content/[id]/review/     # Re-run AI review
       dashboard/               # Stats aggregation
       guidelines/              # Guideline CRUD + AI parsing
       rules/                   # Rule management
-    dashboard/                 # Dashboard pages (submit, content, rules, guidelines)
+    dashboard/                 # Dashboard pages (submit, content, rules, guidelines, analytics)
     login/                     # Login page
-  components/                  # Sidebar, DashboardLayout
+  components/                  # Layout, tour, tooltips, collaboration, notifications, command palette
   lib/
     ai.ts                      # AI functions (reviewContent, parseGuidelines)
     auth.ts                    # NextAuth config
     db.ts                      # Prisma client
 prisma/
-  schema.prisma                # 6 models, 6 enums
-  seed.ts                      # Rich demo data
+  schema.prisma                # 9 models, 6 enums
+  seed.ts                      # 20-item demo dataset
 ```
 
 ---

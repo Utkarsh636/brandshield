@@ -17,8 +17,11 @@ import {
   Copy,
   Check,
   ArrowRight,
+  Bot,
+  FileDown,
 } from "lucide-react"
 import Link from "next/link"
+import CollaborationPanel from "@/components/CollaborationPanel"
 
 const statusColors: Record<string, string> = {
   PENDING: "bg-slate-500/20 text-slate-400 border-slate-500/30",
@@ -65,6 +68,13 @@ export default function ContentDetailPage() {
   const [fixResult, setFixResult] = useState<any>(null)
   const [savingFix, setSavingFix] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Visual fix state
+  const [visualFixLoading, setVisualFixLoading] = useState(false)
+  const [visualFixResult, setVisualFixResult] = useState<any>(null)
+  const [decisionLoading, setDecisionLoading] = useState(false)
+  const [decision, setDecision] = useState<any>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const fetchContent = useCallback(() => {
     setLoading(true)
@@ -140,7 +150,7 @@ export default function ContentDetailPage() {
       await fetch(`/api/content/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: fixResult.fixedBody }),
+      body: JSON.stringify({ body: fixResult.fixedBody, changeNote: "Applied BrandShield Auto-Fix" }),
       })
       setFixResult(null)
       showToast("Fixed content saved! Re-running review...")
@@ -159,6 +169,52 @@ export default function ContentDetailPage() {
     navigator.clipboard.writeText(fixResult.fixedBody)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const visualFix = async () => {
+    setVisualFixLoading(true)
+    try {
+      const res = await fetch(`/api/content/${params.id}/fix-visual`, { method: "POST" })
+      if (!res.ok) throw new Error("Fix failed")
+      const data = await res.json()
+      setVisualFixResult(data)
+      showToast(`Image recoloured: ${data.appliedFixes} colour(s) corrected`)
+    } catch {
+      showToast("Visual fix failed.")
+    }
+    setVisualFixLoading(false)
+  }
+
+  const letBrandShieldDecide = async () => {
+    setDecisionLoading(true)
+    try {
+      const res = await fetch(`/api/content/${params.id}/decide`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to create recommendation")
+      setDecision(data)
+    } catch (err: any) { showToast(err.message) }
+    finally { setDecisionLoading(false) }
+  }
+
+  const downloadPdf = async () => {
+    setPdfLoading(true)
+    try {
+      const { jsPDF } = await import("jspdf")
+      const pdf = new jsPDF()
+      const findingsForReport = findings.map((finding: any) => `[${finding.severity}] ${finding.category}: ${finding.issueText} — ${finding.suggestion}`)
+      pdf.setFillColor(15, 23, 42); pdf.rect(0, 0, 210, 35, "F")
+      pdf.setTextColor(244, 63, 94); pdf.setFontSize(24); pdf.text("BrandShield", 15, 18)
+      pdf.setTextColor(226, 232, 240); pdf.setFontSize(11); pdf.text("Brand compliance review report", 15, 27)
+      pdf.setTextColor(15, 23, 42); pdf.setFontSize(16); pdf.text(content.title, 15, 50)
+      pdf.setFontSize(10); pdf.text(`Compliance score: ${score ?? "N/A"}/100   •   Status: ${statusLabels[content.status] || content.status}`, 15, 59)
+      let y = 70
+      const add = (heading: string, text: string) => { pdf.setFontSize(12); pdf.setTextColor(244, 63, 94); pdf.text(heading, 15, y); y += 6; pdf.setFontSize(9); pdf.setTextColor(51, 65, 85); const lines = pdf.splitTextToSize(text, 178); if (y + lines.length * 5 > 280) { pdf.addPage(); y = 20 }; pdf.text(lines, 15, y); y += lines.length * 5 + 8 }
+      add("Summary", latestReview?.summary || "No review summary available.")
+      add(`Findings (${findings.length})`, findingsForReport.length ? findingsForReport.join("\n\n") : "No brand guideline violations were detected.")
+      add("Content", content.body)
+      pdf.save(`${content.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-brandshield-report.pdf`)
+    } catch { showToast("Failed to create PDF report") }
+    finally { setPdfLoading(false) }
   }
 
   if (loading) {
@@ -318,6 +374,8 @@ export default function ContentDetailPage() {
         </div>
       )}
 
+      {decision && <div className={`mb-6 rounded-xl border p-5 animate-scale-in ${decision.decision === "APPROVED" ? "bg-green-500/5 border-green-500/20" : "bg-yellow-500/5 border-yellow-500/20"}`}><div className="flex gap-2 items-center"><Bot className={`h-5 w-5 ${decision.decision === "APPROVED" ? "text-green-400" : "text-yellow-400"}`} /><h3 className="font-semibold text-white">BrandShield recommendation: {decision.decision === "APPROVED" ? "Approve" : "Request revision"}</h3></div><p className="text-sm text-slate-300 mt-2">{decision.recommendation}</p><p className="text-xs text-slate-500 mt-2">Score {decision.score}/100 · {decision.critical} critical · {decision.warnings} warnings</p></div>}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: Content */}
         <div className="lg:col-span-3 space-y-6">
@@ -355,6 +413,43 @@ export default function ContentDetailPage() {
                 {content.body}
               </p>
             </div>
+
+            {/* Image display */}
+            {content.imageUrl && (
+              <div className="mt-4">
+                <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-medium">Attached Image</p>
+                <img src={content.imageUrl} alt="Content image" className="max-h-48 rounded-lg border border-slate-700" />
+              </div>
+            )}
+
+            {/* Visual fix result */}
+            {visualFixResult && visualFixResult.appliedFixes > 0 && (
+              <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-lg animate-scale-in">
+                <p className="text-xs text-green-400 font-medium mb-3 uppercase tracking-wider">Visual Auto-Fix Result</p>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <p className="text-xs text-red-400 mb-1">Original</p>
+                    <img src={visualFixResult.originalImageUrl} alt="Original" className="max-h-32 rounded border border-red-500/20" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-green-400 mb-1">Recoloured</p>
+                    <img src={visualFixResult.fixedImageUrl} alt="Fixed" className="max-h-32 rounded border border-green-500/20" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {visualFixResult.colorChanges?.map((change: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <div className="w-4 h-4 rounded border border-slate-600" style={{ backgroundColor: change.from }} />
+                      <span className="text-slate-500">{change.from}</span>
+                      <ArrowRight className="h-3 w-3 text-slate-600" />
+                      <div className="w-4 h-4 rounded border border-slate-600" style={{ backgroundColor: change.to }} />
+                      <span className="text-green-400">{change.to} ({change.toName})</span>
+                    </div>
+                  ))}
+                </div>
+                <a download="brandshield-fixed-image.png" href={visualFixResult.fixedImageUrl} className="inline-flex mt-3 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg">Download fixed image</a>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -363,6 +458,8 @@ export default function ContentDetailPage() {
               Actions
             </h3>
             <div className="flex flex-wrap gap-3">
+              <button onClick={letBrandShieldDecide} disabled={decisionLoading} className="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2">{decisionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}{decisionLoading ? "Deciding…" : "Let BrandShield Decide"}</button>
+              <button onClick={downloadPdf} disabled={pdfLoading} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2">{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}{pdfLoading ? "Creating report…" : "Download PDF Report"}</button>
               {/* Auto-fix button */}
               {findings.length > 0 && !fixResult && (
                 <button
@@ -375,7 +472,23 @@ export default function ContentDetailPage() {
                   ) : (
                     <Wand2 className="h-4 w-4" />
                   )}
-                  {fixLoading ? "Fixing..." : "Auto-Fix All"}
+                  {fixLoading ? "Fixing..." : "Auto-Fix Text"}
+                </button>
+              )}
+
+              {/* Visual fix button */}
+              {content.imageUrl && !visualFixResult && (
+                <button
+                  onClick={visualFix}
+                  disabled={visualFixLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-pink-600 to-orange-600 hover:from-pink-700 hover:to-orange-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-pink-500/20"
+                >
+                  {visualFixLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  {visualFixLoading ? "Recolouring..." : "Fix Image Colours"}
                 </button>
               )}
 
@@ -416,6 +529,7 @@ export default function ContentDetailPage() {
 
         {/* Right: Review Results */}
         <div className="lg:col-span-2 space-y-6">
+          <CollaborationPanel contentId={content.id} comments={content.comments || []} versions={content.versions || []} onChange={fetchContent} />
           {/* Score */}
           <div className={`border rounded-xl p-6 text-center ${scoreBg}`}>
             <Shield className={`h-8 w-8 mx-auto mb-2 ${scoreColor}`} />
