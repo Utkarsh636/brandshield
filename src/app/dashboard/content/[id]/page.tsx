@@ -109,7 +109,7 @@ export default function ContentDetailPage() {
       if (res.ok) {
         showToast(`Status updated to ${statusLabels[status] || status}`)
         fetchContent()
-      }
+      } else throw new Error("Status update failed")
     } catch {
       showToast("Failed to update status")
     }
@@ -120,7 +120,8 @@ export default function ContentDetailPage() {
     setReviewLoading(true)
     setFixResult(null)
     try {
-      await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      const res = await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      if (!res.ok) throw new Error("Review failed")
       showToast("Review complete!")
       fetchContent()
     } catch {
@@ -147,15 +148,17 @@ export default function ContentDetailPage() {
     if (!fixResult?.fixedBody) return
     setSavingFix(true)
     try {
-      await fetch(`/api/content/${params.id}`, {
+      const saveRes = await fetch(`/api/content/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: fixResult.fixedBody, changeNote: "Applied BrandShield Auto-Fix" }),
       })
+      if (!saveRes.ok) throw new Error("Save failed")
       setFixResult(null)
       showToast("Fixed content saved! Re-running review...")
       // Re-run review on the fixed content
-      await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      const reviewRes = await fetch(`/api/content/${params.id}/review`, { method: "POST" })
+      if (!reviewRes.ok) throw new Error("Review failed")
       showToast("Review of fixed content complete!")
       fetchContent()
     } catch {

@@ -121,7 +121,7 @@ model Finding {
   reviewId    String
   review      Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   ruleId      String?
-  rule        Rule?        @relation(fields: [ruleId], references: [id])
+  rule        Rule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
   issueText   String       @db.Text
   explanation String       @db.Text
   suggestion  String       @db.Text

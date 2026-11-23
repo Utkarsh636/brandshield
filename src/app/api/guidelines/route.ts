@@ -22,20 +22,23 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { name, description, rawContent } = await req.json()
-    if (!name || !rawContent) {
+    if (typeof name !== "string" || typeof rawContent !== "string" || !name.trim() || !rawContent.trim()) {
       return NextResponse.json(
         { error: "Name and content are required" },
         { status: 400 }
       )
     }
+    if (name.trim().length > 160 || rawContent.trim().length > 20000 || (description && (typeof description !== "string" || description.length > 500))) {
+      return NextResponse.json({ error: "Name must be at most 160 characters, description 500, and guidelines 20,000" }, { status: 400 })
+    }
 
     // Create the guideline
     const guideline = await prisma.brandGuideline.create({
-      data: { name, description: description || "", rawContent },
+      data: { name: name.trim(), description: typeof description === "string" ? description.trim() : "", rawContent: rawContent.trim() },
     })
 
     // Use AI to parse raw guidelines into structured rules
-    const parsedRules = await parseGuidelines(rawContent)
+    const parsedRules = await parseGuidelines(rawContent.trim())
 
     // Create rules in database
     if (parsedRules && Array.isArray(parsedRules)) {

@@ -24,6 +24,7 @@ export default function RulesPage() {
   const [rules, setRules] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [actionError, setActionError] = useState("")
   const [filter, setFilter] = useState("ALL")
   const [search, setSearch] = useState("")
   const [toggling, setToggling] = useState<string | null>(null)
@@ -41,6 +42,7 @@ export default function RulesPage() {
 
   const toggleRule = async (id: string, isActive: boolean) => {
     setToggling(id)
+    setActionError("")
     try {
       const res = await fetch(`/api/rules/${id}`, {
         method: "PATCH",
@@ -53,9 +55,12 @@ export default function RulesPage() {
             r.id === id ? { ...r, isActive: !isActive } : r
           )
         )
+      } else {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to update rule")
       }
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      setActionError(err.message || "Failed to update rule")
     }
     setToggling(null)
   }
@@ -84,6 +89,7 @@ export default function RulesPage() {
       <p className="text-slate-400 mb-6">
         Manage the rules that content is reviewed against
       </p>
+      {actionError && <div className="mb-5 flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3"><AlertCircle className="h-4 w-4 shrink-0" /><span>{actionError}</span></div>}
 
       {/* Search + Filter */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">

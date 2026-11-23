@@ -64,11 +64,16 @@ export default function GuidelinesPage() {
   const deleteGuideline = async (id: string) => {
     if (!confirm("Delete this guideline and all its rules?")) return
     setDeleting(id)
+    setError("")
     try {
-      await fetch(`/api/guidelines/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/guidelines/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to delete guideline")
+      }
       fetchGuidelines()
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      setError(err.message || "Failed to delete guideline")
     }
     setDeleting(null)
   }
@@ -98,6 +103,12 @@ export default function GuidelinesPage() {
           <CheckCircle className="h-4 w-4 shrink-0" />
           <span>{success}</span>
           <button onClick={() => setSuccess("")} className="ml-auto text-green-400/50 hover:text-green-400">&times;</button>
+        </div>
+      )}
+      {error && !showForm && !submitting && (
+        <div className="mb-6 flex items-start gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 animate-scale-in">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
         </div>
       )}
 
